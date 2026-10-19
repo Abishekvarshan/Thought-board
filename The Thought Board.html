@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Thought Board</title>
+<style>
+:root{--ink:#29251f;--wood:#704321;--red:#b63d2d;--yellow:#fff176}
+*{box-sizing:border-box}
+::selection{background:transparent;color:inherit}
+::-moz-selection{background:transparent;color:inherit}
+html,body{height:100%;width:100%;margin:0;overflow:hidden}
+body{font-family:Georgia,'Times New Roman',serif;background:#bd8a50;color:var(--ink)}
+.board{position:absolute;inset:0;overflow:hidden;background-color:#c9975d;background-image:radial-gradient(#37200c22 1px,transparent 1.5px),radial-gradient(#ffffff1f 1px,transparent 1.5px);background-size:9px 9px,13px 13px;background-position:0 0,4px 5px;box-shadow:inset 0 0 0 12px var(--wood),inset 0 6px 19px #42270d55}
+.empty{position:absolute;inset:12px;pointer-events:none}
+.shelf{position:absolute;z-index:50;top:24px;right:26px;width:190px;display:grid;justify-items:center;gap:12px;padding:13px 12px 14px;border:1px solid #ffffff62;border-radius:7px;background:#fffaf0eF;box-shadow:0 7px 22px #39230e55}
+.paper-stack{position:relative;width:118px;height:102px;cursor:grab;touch-action:none;filter:drop-shadow(2px 4px 3px #0003)}
+.paper-stack:before,.paper-stack:after,.paper{position:absolute;inset:0;background:var(--yellow);content:"";box-shadow:1px 2px 3px #0002}
+.paper-stack:before{z-index:0;transform:rotate(7deg);background:#ffab91}.paper-stack:after{z-index:1;transform:rotate(-5deg);background:#a5d6a7}.paper{z-index:2;transform:rotate(1deg);display:grid;place-items:center;background:var(--sheet-color,var(--yellow));font:12px Georgia,serif;color:#645a3b}
+.pin-row{display:flex;justify-content:center;align-items:center;gap:12px;width:100%;padding:7px 4px;border-radius:20px;background:#29251f0b}
+.pin{width:23px;height:23px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#ff9889,var(--red) 60%,#761e16);box-shadow:2px 4px 5px #0006}
+.pin-token{cursor:grab;touch-action:none}.clock{font:12px Georgia,serif;color:#635b4c;min-height:14px}.clock.low{color:var(--red);font-weight:bold}
+.note{position:absolute;width:174px;min-height:142px;padding:24px 13px 43px;border:0;border-radius:0;background:var(--yellow);color:#29251f;box-shadow:2px 6px 12px #0004;font:16px/1.4 'Segoe Print','Comic Sans MS',cursive;overflow-wrap:anywhere;white-space:pre-wrap;cursor:grab;touch-action:none;user-select:text;outline:none}
+.note:focus{box-shadow:3px 9px 18px #0005;z-index:8}
+.note-writing{width:100%;min-height:65px;outline:none;cursor:text;white-space:pre-wrap;overflow-wrap:anywhere}
+.note.drag{cursor:grabbing;z-index:30;box-shadow:5px 13px 20px #0006}
+.note.pinned{cursor:grab}
+.note-pin{position:absolute;top:-6px;left:50%;margin-left:-11px;width:23px;height:23px}
+.note-pin.placed{top:0;left:0;margin:0;transform:translate(-50%,-50%)}
+.note-hint{position:absolute;right:-13px;top:-43px;padding:6px 11px;border-radius:16px;background:#fffaf0;color:#8e2b20;font:bold 15px Georgia,serif;white-space:nowrap;box-shadow:0 3px 9px #0004;opacity:0;transform:translateY(5px);transition:opacity .15s,transform .15s;pointer-events:none}
+.note.has-text:not(:focus-within) .note-hint{opacity:1;transform:translateY(0);animation:hintBlink .75s ease-in-out infinite alternate}
+.note-hint:before{content:'⬇';display:inline-block;margin-right:5px;font-size:25px;line-height:12px;vertical-align:-3px;animation:arrowBounce .55s ease-in-out infinite alternate}
+.note-timer{display:none;position:absolute;right:11px;bottom:10px;padding:3px 7px;border-radius:10px;background:#fff9d9;color:#625936;font:12px Georgia,serif;box-shadow:0 1px 3px #0002}
+.note.has-text:not(:focus-within) .note-timer{display:block}
+.note-timer.low{color:#a92f21;font-weight:bold;background:#fff0e9}
+@keyframes hintBlink{to{filter:brightness(.78);transform:translateY(-2px)}}
+@keyframes arrowBounce{to{transform:translateY(5px)}}
+.pin-action{position:absolute;right:8px;bottom:7px;padding:5px 9px;border:0;border-radius:14px;background:#b63d2d;color:#fff;font:12px Georgia,serif;cursor:pointer;box-shadow:0 2px 4px #0003;animation:pop .2s ease-out}
+.pin-action:hover{background:#8e2b20}
+.pin-action:disabled{display:none}
+.ghost{position:fixed;z-index:100;width:25px;height:25px;margin:-12px;pointer-events:none}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+@media(max-width:600px){.shelf{top:18px;right:18px;width:153px;padding:10px;gap:8px}.paper-stack{width:100px;height:86px}.note{width:150px;min-height:128px;font-size:14px}.board{box-shadow:inset 0 0 0 8px var(--wood),inset 0 6px 19px #42270d55}}
+</style>
+</head>
+<body>
+<main class="board" id="board" aria-label="Thought board"><div class="empty"></div></main>
+<aside class="shelf" aria-label="Sticky notes and pins">
+  <div class="paper-stack" id="paperStack" title="Take a sticky note" aria-label="Take a sticky note"><div class="paper"></div></div>
+  <div class="pin-row" id="pinRow"></div>
+</aside>
+<script>
+const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f8bbd0','#ce93d8','#ffe0b2'];
+const board=document.getElementById('board');
+const DB_URL='https://thought-board-dab27-default-rtdb.asia-southeast1.firebasedatabase.app';
+const THOUGHTS_URL=DB_URL+'/thoughts';
+let notes=[],nextColor=0;
+async function loadRemote(){try{const response=await fetch(THOUGHTS_URL+'.json');if(!response.ok)throw new Error('Firebase read failed: '+response.status);const data=await response.json();const incoming=Object.entries(data||{}).map(([id,n])=>({...n,id,x:n.x??n.fx??.4,y:n.y??n.fy??.4,pinned:true}));notes=notes.filter(n=>!n.pinned).concat(incoming);board.querySelectorAll('.note.pinned').forEach(el=>el.remove());notes.filter(n=>n.pinned).forEach(n=>makeNote(n))}catch(error){console.error(error)}}
+async function persist(n){try{const response=await fetch(`${THOUGHTS_URL}/${encodeURIComponent(n.id)}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:n.t,x:n.x,y:n.y,c:n.c,pinX:n.pinX??null,pinY:n.pinY??null,r:n.r||0,pinned:true,updatedAt:Date.now()})});if(!response.ok)throw new Error('Firebase write failed: '+response.status)}catch(error){console.error(error)}}
+loadRemote();
+if('EventSource' in window){const stream=new EventSource(THOUGHTS_URL+'.json');stream.addEventListener('put',()=>loadRemote());stream.addEventListener('patch',()=>loadRemote());}
+function point(e){const r=board.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function bounded(x,y,w,h){return{x:Math.max(10,Math.min(x,board.clientWidth-w-10)),y:Math.max(10,Math.min(y,board.clientHeight-h-10))}}
+function savePosition(n,el){const p=bounded(parseFloat(el.style.left),parseFloat(el.style.top),el.offsetWidth,el.offsetHeight);el.style.left=p.x+'px';el.style.top=p.y+'px';n.x=p.x/board.clientWidth;n.y=p.y/board.clientHeight}
+function avoidFullOverlap(el){const n=notes.find(item=>item.id===el.dataset.id);if(!n)return;const w=el.offsetWidth,h=el.offsetHeight,W=board.clientWidth,H=board.clientHeight,origin=bounded(parseFloat(el.style.left),parseFloat(el.style.top),w,h),step=28;const crowded=(x,y)=>Array.from(board.querySelectorAll('.note')).some(other=>{if(other===el)return false;const ix=Math.min(x+w,other.offsetLeft+other.offsetWidth)-Math.max(x,other.offsetLeft),iy=Math.min(y+h,other.offsetTop+other.offsetHeight)-Math.max(y,other.offsetTop);return ix>=Math.min(w,other.offsetWidth)-24&&iy>=Math.min(h,other.offsetHeight)-24});if(!crowded(origin.x,origin.y))return;for(let radius=step;radius<Math.max(W,H);radius+=step){for(let i=0;i<16;i++){const angle=i*Math.PI/8,p=bounded(origin.x+Math.cos(angle)*radius,origin.y+Math.sin(angle)*radius,w,h);if(!crowded(p.x,p.y)){el.style.left=p.x+'px';el.style.top=p.y+'px';savePosition(n,el);return}}}}
+function addPin(el,x,y){if(el.querySelector('.note-pin'))return;const p=document.createElement('i');p.className='pin note-pin';if(Number.isFinite(x)&&Number.isFinite(y)){p.classList.add('placed');p.style.left=x+'px';p.style.top=y+'px'}el.appendChild(p)}
+function makeNote(n){const el=document.createElement('div');el.className='note'+(n.pinned?' pinned':'');el.style.background=COLORS[(n.c||0)%COLORS.length];el.style.left=(n.x??.4)*board.clientWidth+'px';el.style.top=(n.y??.4)*board.clientHeight+'px';el.dataset.id=n.id;
+  if(n.pinned){el.textContent=n.t||'';addPin(el,n.pinX,n.pinY)}else{n.remaining=n.remaining??120;const writing=document.createElement('div');writing.className='note-writing';writing.contentEditable='true';writing.spellcheck=false;writing.setAttribute('role','textbox');writing.setAttribute('aria-label','Write your thought');writing.textContent=n.t||'';el.appendChild(writing);const hint=document.createElement('div');hint.className='note-hint';hint.textContent='Pin it';hint.contentEditable='false';el.appendChild(hint);const timerBadge=document.createElement('span');timerBadge.className='note-timer';timerBadge.textContent='2:00';el.appendChild(timerBadge);writing.addEventListener('input',()=>{n.t=writing.innerText.trim();el.classList.toggle('has-text',!!n.t)});writing.addEventListener('focus',()=>{selectNote(n,el);pauseTimer(n,el)});writing.addEventListener('blur',()=>{if(n.t&&active?.n===n)startTimer(n,el)});writing.addEventListener('pointerdown',()=>selectNote(n,el));if(n.t)el.classList.add('has-text');}
+  dragNote(el,n);board.appendChild(el);return el}
+function selectNote(n,el){if(active&&active.n!==n)pauseTimer(active.n,active.el);active={n,el};document.querySelectorAll('.note:not(.pinned)').forEach(x=>{if(x!==el&&x.contains(document.activeElement))x.querySelector('.note-writing')?.blur()});if(!n.t)setClock(120,el)}
+let active=null,timer=null,startedAt=0;
+function setClock(seconds,el=active?.el){const badge=el?.querySelector('.note-timer');if(!badge)return;badge.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');badge.classList.toggle('low',seconds<=20)}
+function startTimer(n,el){if(active?.n===n&&timer)return;if(timer&&active)pauseTimer(active.n,active.el);active={n,el};n.remaining=n.remaining??120;if(n.remaining<=0){el.remove();notes=notes.filter(x=>x!==n);active=null;return}startedAt=Date.now();setClock(n.remaining,el);timer=setInterval(()=>{const left=Math.max(0,n.remaining-Math.floor((Date.now()-startedAt)/1000));setClock(left,el);if(left<=0){clearInterval(timer);timer=null;el.remove();notes=notes.filter(x=>x!==n);active=null}},500)}
+function pauseTimer(n,el){if(active?.n!==n||!timer)return;n.remaining=Math.max(0,n.remaining-Math.floor((Date.now()-startedAt)/1000));clearInterval(timer);timer=null;setClock(n.remaining,el)}
+function pinNote(n,el,x,y){const writing=el.querySelector('.note-writing');n.t=writing?.innerText.trim()||'';if(!n.t)return false;if(active?.n===n){clearInterval(timer);timer=null}n.pinned=true;n.pinX=x;n.pinY=y;el.replaceChildren(document.createTextNode(n.t));el.classList.remove('has-text');el.classList.add('pinned');addPin(el,x,y);savePosition(n,el);persist(n);active=null;return true}
+function dragNote(el,n){let down=null;el.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;down={x:e.clientX-parseFloat(el.style.left),y:e.clientY-parseFloat(el.style.top),startX:e.clientX,startY:e.clientY};if(n.pinned){el.setPointerCapture(e.pointerId);el.classList.add('drag')}});el.addEventListener('pointermove',e=>{if(!down||!n.pinned)return;el.style.left=Math.max(0,Math.min(e.clientX-down.x,board.clientWidth-el.offsetWidth))+'px';el.style.top=Math.max(0,Math.min(e.clientY-down.y,board.clientHeight-el.offsetHeight))+'px'});el.addEventListener('pointerup',()=>{if(down&&n.pinned){el.classList.remove('drag');avoidFullOverlap(el);savePosition(n,el);persist(n)}down=null})}
+function spawnAt(x,y){const p=bounded(x-87,y-65,174,142),c=nextColor++%COLORS.length,n={id:crypto.randomUUID?.()||String(Date.now()+Math.random()),t:'',x:p.x/board.clientWidth,y:p.y/board.clientHeight,c,pinned:false};document.querySelector('.paper-stack').style.setProperty('--sheet-color',COLORS[nextColor%COLORS.length]);notes.push(n);const el=makeNote(n);avoidFullOverlap(el);selectNote(n,el);el.querySelector('.note-writing').focus()}
+document.getElementById('paperStack').addEventListener('pointerdown',e=>{e.preventDefault();const g=document.createElement('div');g.className='paper ghost';g.style.background='#fff176';document.body.appendChild(g);const move=ev=>{g.style.left=ev.clientX+'px';g.style.top=ev.clientY+'px'};move(e);const up=ev=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);g.remove();const r=board.getBoundingClientRect();if(ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom){const p=point(ev);spawnAt(p.x,p.y)}else spawnAt(board.clientWidth/2,board.clientHeight/2)};addEventListener('pointermove',move);addEventListener('pointerup',up)});
+const pinRow=document.getElementById('pinRow');for(let i=0;i<3;i++){const p=document.createElement('i');p.className='pin pin-token';p.setAttribute('aria-label','Pin');p.addEventListener('pointerdown',e=>{e.preventDefault();const g=document.createElement('i');g.className='pin ghost';document.body.appendChild(g);const move=ev=>{g.style.left=ev.clientX+'px';g.style.top=ev.clientY+'px'};move(e);const up=ev=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);g.remove();const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.note');if(target&&!target.classList.contains('pinned')){const n=notes.find(x=>x.id===target.dataset.id);if(n){const r=target.getBoundingClientRect();pinNote(n,target,ev.clientX-r.left,ev.clientY-r.top)}}else if(target?.classList.contains('pinned')){const r=target.getBoundingClientRect();addPin(target,ev.clientX-r.left,ev.clientY-r.top)}};addEventListener('pointermove',move);addEventListener('pointerup',up)});pinRow.appendChild(p)}
+</script>
+</body>
+</html>
