@@ -51,6 +51,9 @@ body{font-family:Georgia,'Times New Roman',serif;background:#bd8a50;color:var(--
   <div class="pin-row" id="pinRow"></div>
 </aside>
 <script type="module">
+import { inject } from '@vercel/analytics';
+inject({ mode: import.meta.env.PROD ? 'production' : 'development' });
+
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f8bbd0','#ce93d8','#ffe0b2'];
 const board=document.getElementById('board');
 const DB_URL=(import.meta.env.VITE_FIREBASE_DATABASE_URL||'').replace(/\/+$/,'');
