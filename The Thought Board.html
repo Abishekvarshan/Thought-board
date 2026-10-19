@@ -49,16 +49,16 @@ body{font-family:Georgia,'Times New Roman',serif;background:#bd8a50;color:var(--
   <div class="paper-stack" id="paperStack" title="Take a sticky note" aria-label="Take a sticky note"><div class="paper"></div></div>
   <div class="pin-row" id="pinRow"></div>
 </aside>
-<script>
+<script type="module">
 const COLORS=['#fff176','#ffab91','#a5d6a7','#81d4fa','#f8bbd0','#ce93d8','#ffe0b2'];
 const board=document.getElementById('board');
-const DB_URL='https://thought-board-dab27-default-rtdb.asia-southeast1.firebasedatabase.app';
-const THOUGHTS_URL=DB_URL+'/thoughts';
+const DB_URL=(import.meta.env.VITE_FIREBASE_DATABASE_URL||'').replace(/\/+$/,'');
+const THOUGHTS_URL=DB_URL?DB_URL+'/thoughts':null;
 let notes=[],nextColor=0;
-async function loadRemote(){try{const response=await fetch(THOUGHTS_URL+'.json');if(!response.ok)throw new Error('Firebase read failed: '+response.status);const data=await response.json();const incoming=Object.entries(data||{}).map(([id,n])=>({...n,id,x:n.x??n.fx??.4,y:n.y??n.fy??.4,pinned:true}));notes=notes.filter(n=>!n.pinned).concat(incoming);board.querySelectorAll('.note.pinned').forEach(el=>el.remove());notes.filter(n=>n.pinned).forEach(n=>makeNote(n))}catch(error){console.error(error)}}
-async function persist(n){try{const response=await fetch(`${THOUGHTS_URL}/${encodeURIComponent(n.id)}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:n.t,x:n.x,y:n.y,c:n.c,pinX:n.pinX??null,pinY:n.pinY??null,r:n.r||0,pinned:true,updatedAt:Date.now()})});if(!response.ok)throw new Error('Firebase write failed: '+response.status)}catch(error){console.error(error)}}
+async function loadRemote(){if(!THOUGHTS_URL)return;try{const response=await fetch(THOUGHTS_URL+'.json');if(!response.ok)throw new Error('Firebase read failed: '+response.status);const data=await response.json();const incoming=Object.entries(data||{}).map(([id,n])=>({...n,id,x:n.x??n.fx??.4,y:n.y??n.fy??.4,pinned:true}));notes=notes.filter(n=>!n.pinned).concat(incoming);board.querySelectorAll('.note.pinned').forEach(el=>el.remove());notes.filter(n=>n.pinned).forEach(n=>makeNote(n))}catch(error){console.error(error)}}
+async function persist(n){if(!THOUGHTS_URL)return;try{const response=await fetch(`${THOUGHTS_URL}/${encodeURIComponent(n.id)}.json`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:n.t,x:n.x,y:n.y,c:n.c,pinX:n.pinX??null,pinY:n.pinY??null,r:n.r||0,pinned:true,updatedAt:Date.now()})});if(!response.ok)throw new Error('Firebase write failed: '+response.status)}catch(error){console.error(error)}}
 loadRemote();
-if('EventSource' in window){const stream=new EventSource(THOUGHTS_URL+'.json');stream.addEventListener('put',()=>loadRemote());stream.addEventListener('patch',()=>loadRemote());}
+if(THOUGHTS_URL&&'EventSource' in window){const stream=new EventSource(THOUGHTS_URL+'.json');stream.addEventListener('put',()=>loadRemote());stream.addEventListener('patch',()=>loadRemote());}
 function point(e){const r=board.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 function bounded(x,y,w,h){return{x:Math.max(10,Math.min(x,board.clientWidth-w-10)),y:Math.max(10,Math.min(y,board.clientHeight-h-10))}}
 function savePosition(n,el){const p=bounded(parseFloat(el.style.left),parseFloat(el.style.top),el.offsetWidth,el.offsetHeight);el.style.left=p.x+'px';el.style.top=p.y+'px';n.x=p.x/board.clientWidth;n.y=p.y/board.clientHeight}
